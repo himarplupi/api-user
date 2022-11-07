@@ -1,6 +1,7 @@
 const fs = require('fs')
+const AuthorizationError = require('../exceptions/AuthorizationError')
 
-const serviceUser = require('../services/ServiceUser')
+const userService = require('../services/UserService')
 
 const getAvatarUrl = (req, filename) =>
   `${req.protocol}://${req.get('host')}/images/${filename || 'no-photo-available.png'}`
@@ -9,6 +10,7 @@ const getAll = async (req, res) => {
   const query = {}
 
   const { page, limit } = req.query
+
   // search by name
   if (req.query.search) {
     query.search = req.query.search
@@ -19,7 +21,7 @@ const getAll = async (req, res) => {
     query.limit = limit
   }
 
-  const { metadata, users } = await serviceUser.getAll(query)
+  const { metadata, users } = await userService.getAll(query)
 
   // Pagination
   const links = {}
@@ -33,27 +35,34 @@ const getAll = async (req, res) => {
     metadata.links = links
   }
 
+  let usersMapped
+  if (page && page > metadata.total_page) {
+    usersMapped = []
+  } else {
+    usersMapped = users.length
+      ? [...users.map((user) => ({
+          ...user.dataValues,
+          avatar: getAvatarUrl(req, user.avatar)
+        }))]
+      : ({
+          ...users.dataValues,
+          avatar: getAvatarUrl(req, users.avatar)
+        })
+  }
+
   return res.json({
     status: 'success',
     data: {
-      users: users.length
-        ? [...users.map((user) => ({
-            ...user.dataValues,
-            avatar: getAvatarUrl(req, user.avatar)
-          }))]
-        : ({
-            ...users.dataValues,
-            avatar: getAvatarUrl(req, users.avatar)
-          }),
+      users: usersMapped,
       metadata
     }
   })
 }
 
-const get = async (req, res) => {
+const get = async (req, res, next) => {
   try {
     const { id: userId } = req.params
-    const user = await serviceUser.get(userId)
+    const user = await userService.get(userId)
     user.avatar = getAvatarUrl(req, user.avatar)
 
     return res.json({
@@ -63,37 +72,39 @@ const get = async (req, res) => {
       }
     })
   } catch (err) {
-    return res.status(err.statusCode).json({
-      status: err.status,
-      message: err.message
-    })
+    next(err)
   }
 }
 
-const create = async (req, res) => {
+const create = async (req, res, next) => {
   try {
     const { body } = req
-    await serviceUser.create(body)
+    await userService.create(body)
 
     return res.status(201).json({
       status: 'success',
       message: 'user baru berhasil dibuat'
     })
   } catch (err) {
-    return res.status(err.statusCode).json({
-      status: err.status,
-      message: err.message
-    })
+    next(err)
   }
 }
 
-const update = async (req, res) => {
+const update = async (req, res, next) => {
   try {
     const { id: userId } = req.params
-    const { name, email } = req.body
+    const { name, email, role } = req.body
 
     const body = {
       name, email
+    }
+
+    if (role) {
+      if (req.user.role === 'admin') {
+        body.role = role
+      } else {
+        throw new AuthorizationError('hak akses tidak valid')
+      }
     }
 
     // Update password
@@ -104,46 +115,40 @@ const update = async (req, res) => {
 
     // Update avatar/photo profile
     if (req.file) {
-      const { avatar } = await serviceUser.get(userId)
+      const { avatar } = await userService.get(userId)
       if (avatar) {
         fs.unlinkSync(`./public/uploads/images/${avatar}`)
       }
       body.avatar = req.file.filename
     }
 
-    await serviceUser.update(userId, body)
+    await userService.update(userId, body)
 
     return res.status(200).json({
       status: 'success',
       message: 'user berhasil diperbarui'
     })
   } catch (err) {
-    return res.status(err.statusCode).json({
-      status: err.status,
-      message: err.message
-    })
+    next(err)
   }
 }
 
-const destroy = async (req, res) => {
+const destroy = async (req, res, next) => {
   try {
     const { id: userId } = req.params
-    const { avatar } = await serviceUser.get(userId)
+    const { avatar } = await userService.get(userId)
     if (avatar) {
       fs.unlinkSync(`./public/uploads/images/${avatar}`)
     }
 
-    await serviceUser.destroy(userId)
+    await userService.destroy(userId)
 
     return res.status(200).json({
       status: 'success',
       message: 'user berhasil dihapus'
     })
   } catch (err) {
-    return res.status(err.statusCode).json({
-      status: err.status,
-      message: err.message
-    })
+    next(err)
   }
 }
 

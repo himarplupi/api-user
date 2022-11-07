@@ -1,5 +1,5 @@
 const Joi = require('joi')
-const ClientError = require('../exceptions/ClientError')
+const InvariantError = require('../exceptions/InvariantError')
 
 module.exports = async (req, res, next) => {
   const { body } = req
@@ -32,14 +32,11 @@ module.exports = async (req, res, next) => {
     const schema = Joi.object(options)
     const validateResult = schema.validate(body)
     if (validateResult.error) {
-      throw new ClientError(validateResult.error.message)
+      throw new InvariantError(validateResult.error.message)
     }
 
     next()
   } catch (err) {
-    return res.status(err.statusCode).json({
-      status: err.status,
-      message: err.message
-    })
+    next(err)
   }
 }

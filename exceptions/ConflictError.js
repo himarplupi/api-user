@@ -2,7 +2,7 @@ const ClientError = require('./ClientError')
 
 class ConflictError extends ClientError {
   constructor (message) {
-    super(message, 'conflict', 409)
+    super(message, 409)
     this.name = 'ConflictError'
   }
 }

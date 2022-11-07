@@ -2,8 +2,7 @@ const crypto = require('crypto')
 const bcrypt = require('bcrypt')
 
 const { User, Authentication } = require('../database/models')
-const NotFoundError = require('../exceptions/NotFoundError')
-const ClientError = require('../exceptions/ClientError')
+const AuthenticationError = require('../exceptions/AuthenticationError')
 
 // Login
 const createAuthentication = async (email, password) => {
@@ -15,12 +14,12 @@ const createAuthentication = async (email, password) => {
   })
 
   if (!user) {
-    throw new NotFoundError('user tidak ditemukan')
+    throw new AuthenticationError('kredensial tidak valid')
   }
 
   const matchPassword = bcrypt.compareSync(password, user.password)
   if (!matchPassword) {
-    throw new ClientError('password tidak valid')
+    throw new AuthenticationError('kredensial tidak valid')
   }
 
   const authentication = await Authentication.create({
@@ -35,7 +34,7 @@ const createAuthentication = async (email, password) => {
 const deleteAuthentication = async (userId) => {
   const user = await User.findByPk(userId)
   if (!user) {
-    throw new NotFoundError('user tidak ditemukan')
+    throw new AuthenticationError('kredensial tidak valid')
   }
 
   await Authentication.destroy({

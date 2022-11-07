@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken')
 
-const ServiceAuthentication = require('../services/ServiceAuthentication')
-const ServiceUser = require('../services/ServiceUser')
+const ServiceAuthentication = require('../services/AuthenticationService')
+const ServiceUser = require('../services/UserService')
 
 // Login
 const createAuthentication = async (req, res) => {
@@ -32,7 +32,8 @@ const createAuthentication = async (req, res) => {
 // Logout
 const deleteAuthentication = async (req, res) => {
   try {
-    const { id: userId } = jwt.verify(req.body.token, process.env.JWT_SECRET_KEY).data.user
+    const { id: userId } = req.user
+
     if (userId) {
       await ServiceAuthentication.deleteAuthentication(userId)
     }

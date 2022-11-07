@@ -1,7 +1,7 @@
 const bcrypt = require('bcrypt')
 const { Op } = require('sequelize')
 
-const { User } = require('../database/models')
+const { User, Authentication } = require('../database/models')
 const ConflictError = require('../exceptions/ConflictError')
 const NotFoundError = require('../exceptions/NotFoundError')
 
@@ -9,8 +9,12 @@ const getAll = async (query = null) => {
   const options = {
     attributes: {
       exclude: ['password']
-    }
+    },
+    order: [
+      ['name', 'ASC']
+    ]
   }
+
   // Pagination
   const { page = 1, limit = 10, search } = query
   const skip = (parseInt(page) - 1) * parseInt(limit)
@@ -36,7 +40,9 @@ const getAll = async (query = null) => {
     users: (users.length === 1) ? users[0] : users,
     metadata: {
       total_data: count,
-      total_page: Math.ceil(count / parseInt(limit))
+      total_page: Math.ceil(count / parseInt(limit)),
+      data_per_page: parseInt(limit),
+      current_page: parseInt(page)
     }
   }
 
@@ -73,9 +79,20 @@ const create = async (payload) => {
 }
 
 const update = async (id, payload) => {
-  const user = await User.findByPk(id)
-  if (!user) {
-    throw new NotFoundError('user tidak ditemukan')
+  const user = await get(id)
+
+  // Update email
+  if (payload.email && payload.email !== user.email) {
+    const userEmailIsExist = await User.findOne({
+      where: {
+        email: payload.email
+      }
+    })
+
+    // email is exist
+    if (userEmailIsExist) {
+      throw new ConflictError('user email sudah digunakan')
+    }
   }
 
   // Update password
@@ -93,6 +110,13 @@ const destroy = async (id) => {
   if (!user) {
     throw new NotFoundError('user tidak ditemukan')
   }
+
+  // cek user login
+  await Authentication.destroy({
+    where: {
+      user_id: id
+    }
+  })
 
   const userDeleted = user.destroy()
 

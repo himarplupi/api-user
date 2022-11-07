@@ -2,14 +2,19 @@ const express = require('express')
 const path = require('path')
 const cookieParser = require('cookie-parser')
 const logger = require('morgan')
+const cors = require('cors')
 
-const indexRouter = require('./routes/index')
+// router
 const usersRouter = require('./routes/users')
 const authenticationsRouter = require('./routes/authentications')
+
+// middlerware
+const errorHandler = require('./middleware/errorHandler')
 
 require('dotenv').config()
 const app = express()
 
+app.use(cors())
 app.use(logger('dev'))
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
@@ -17,8 +22,10 @@ app.use(cookieParser())
 app.use(express.static(path.join(__dirname, '../public')))
 
 app.use('/images', express.static(path.join(__dirname, '../public/uploads/images')))
-app.use('/', indexRouter)
 app.use('/users', usersRouter)
 app.use('/auth', authenticationsRouter)
+
+// Error handling
+app.use(errorHandler)
 
 module.exports = app
